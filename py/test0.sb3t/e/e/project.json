@@ -1,0 +1,143 @@
+{
+	"objName": "Stage",
+	"variables": [{
+			"name": "my variable",
+			"value": 0,
+			"isPersistent": false
+		},
+		{
+			"name": "90-",
+			"value": 0,
+			"isPersistent": false
+		}],
+	"lists": [{
+			"listName": "aaa",
+			"contents": ["412", "213", "43", "", "1cx", "wed", ""],
+			"isPersistent": false,
+			"x": 0,
+			"y": 0,
+			"width": 82,
+			"height": 64,
+			"visible": false
+		}],
+	"scripts": [[101, 98, [["whenGreenFlag"], ["startScene", "backdrop1"], ["playSound:", "pop"]]]],
+	"sounds": [{
+			"soundName": "pop",
+			"soundID": 1,
+			"md5": "899ca92faa1891fdaf035ab31a4c1547.wav",
+			"sampleCount": 258,
+			"rate": 24000,
+			"format": "adpcm"
+		}],
+	"costumes": [{
+			"costumeName": "backdrop1",
+			"baseLayerID": 4,
+			"baseLayerMD5": "cd21514d0531fdffb22204e0ec5ed84a.svg",
+			"bitmapResolution": 1,
+			"rotationCenterX": 240,
+			"rotationCenterY": 180
+		}],
+	"currentCostumeIndex": 0,
+	"penLayerMD5": "5c81a336fab8be57adc039a8a2b33ca9.png",
+	"penLayerID": 0,
+	"tempoBPM": 60,
+	"videoAlpha": 0.5,
+	"children": [{
+			"objName": "Sprite1",
+			"variables": [{
+					"name": "0-=k",
+					"value": 0,
+					"isPersistent": false
+				}],
+			"lists": [{
+					"listName": "ji0",
+					"contents": [],
+					"isPersistent": false,
+					"x": 0,
+					"y": 0,
+					"width": 82,
+					"height": 179,
+					"visible": false
+				}],
+			"scripts": [[137,
+					75,
+					[["whenGreenFlag"],
+						["doAsk", "step?"],
+						["forward:", ["answer"]],
+						["say:duration:elapsed:from:", "Hello!", "2"],
+						["setVar:to:", "0-=k", ["list:contains:", "aaa", "thing"]]]]],
+			"sounds": [{
+					"soundName": "Meow",
+					"soundID": 0,
+					"md5": "c785837506e706ce65cfb1402c301a19.wav",
+					"sampleCount": 18688,
+					"rate": 24000,
+					"format": "adpcm"
+				}],
+			"costumes": [{
+					"costumeName": "costume1",
+					"baseLayerID": 1,
+					"baseLayerMD5": "b7853f557e4426412e64bb3da6531a99.svg",
+					"bitmapResolution": 1,
+					"rotationCenterX": 48,
+					"rotationCenterY": 50
+				},
+				{
+					"costumeName": "costume2",
+					"baseLayerID": 2,
+					"baseLayerMD5": "27a0bf89451a32a7eea1930e3e2bfce4.png",
+					"bitmapResolution": 2,
+					"rotationCenterX": 91,
+					"rotationCenterY": 105
+				},
+				{
+					"costumeName": "costume3",
+					"baseLayerID": 3,
+					"baseLayerMD5": "a96426d3e9a2431d1f1b7690c6a3b127.png",
+					"bitmapResolution": 2,
+					"rotationCenterX": 91,
+					"rotationCenterY": 105
+				}],
+			"currentCostumeIndex": 2,
+			"scratchX": 0,
+			"scratchY": 0,
+			"scale": 1,
+			"direction": 90,
+			"rotationStyle": null,
+			"isDraggable": false,
+			"indexInLibrary": 1,
+			"visible": true,
+			"spriteInfo": {
+				"metaData": "ad82caf04f3a3976353656cf87ace2ae"
+			}
+		},
+		{
+			"listName": "ji0",
+			"contents": [],
+			"isPersistent": false,
+			"x": 0,
+			"y": 0,
+			"width": 82,
+			"height": 179,
+			"visible": false
+		},
+		{
+			"listName": "aaa",
+			"contents": ["412", "213", "43", "", "1cx", "wed", ""],
+			"isPersistent": false,
+			"x": 0,
+			"y": 0,
+			"width": 82,
+			"height": 64,
+			"visible": false
+		}],
+	"info": {
+		"flashVersion": "WIN 32,0,0,100",
+		"videoOn": false,
+		"swfVersion": "",
+		"scriptCount": 2,
+		"metaData": "ad82caf04f3a3976353656cf87ace2ae",
+		"spriteCount": 1,
+		"userAgent": "Scratch 2.0 Offline Editor"
+	}
+}

@@ -1,0 +1,11 @@
+{
+    "motion_movesteps": ["forward:", ["STEPS"]],
+    "looks_sayforsecs": ["say:duration:elapsed:from:", ["MESSAGE", "SECS"]],
+    "looks_switchbackdropto": ["startScene", ["BACKDROP"]],
+    "sound_play": ["playSound:", ["SOUND_MENU"]],
+    "data_setvariableto": ["setVar:to:", ["VARIABLE", "VALUE"]],
+    "data_listcontainsitem": ["list:contains:", ["LIST", "ITEM"]],
+    "event_whenflagclicked": ["whenGreenFlag", []],
+    "sensing_askandwait": ["doAsk", ["QUESTION"]],
+    "sensing_answer": ["answer", []]
+}
