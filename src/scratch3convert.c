@@ -15,6 +15,9 @@
 #include "minizip/unzip.h"
 #include "jsonc/json.h"
 
+#include "single_list.h"
+#include "cppfunc.h"
+
 #define BUFFER_SIZE 8192
 #define MAX_FILENAME 512
 #define DIR_DELIMTER '/'
@@ -22,7 +25,8 @@
 typedef enum { true = 1, false = 0 } bool;
 
 int sc3convert_unpack_file(const char *in_file_path);
-int sc3convert_pack_file(const char *dir_path);
+int sc3convert_pack_file(const char *dir_path, const char *out_file);
+void sc3convert_pack_file_from_dir(void *obj, const char *path, const char *file_name);
 int sc3convert_convert_project(const char *name);
 json_object *sc3convert_load_opcode();
 json_object *sc3convert_new_object(const char *name);
@@ -31,7 +35,6 @@ json_object *sc3convert_new_sprite(const char *name);
 json_object *sc3convert_new_variable(json_object *object);
 json_object *sc3convert_new_list(json_object *object);
 json_object *sc3convert_new_script(json_object *opcode, json_object *blocks, json_object *block_item);
-bool sc3convert_array_contains_string(json_object *array, const char *string);
 
 int sc3convert_convert(const char *name) {
 	return sc3convert_convert_project(name);
@@ -72,7 +75,7 @@ int sc3convert_unpack_file(const char *in_file_path) {
 		}
 
 		// Add file name
-		strcpy(file_name, in_file_path);
+		strcpy(file_name, dir_path);
 		strcat(file_name, "/");
 		strcat(file_name, tmp_file_name);
 
@@ -130,8 +133,51 @@ int sc3convert_unpack_file(const char *in_file_path) {
 	return SC3CONVERT_SUCCESS;
 }
 
-int sc3convert_pack_file(const char *dir_path) {
+int sc3convert_pack_file(const char *dir_path, const char *out_file) {
+	// Create zip file
+	zipFile zip_file = zipOpen(out_file, APPEND_STATUS_CREATE);
+	if (zip_file == NULL) {
+		return SC3CONVERT_EXCEPTION_ZIPCREATEZIP;
+	}
+
+	foreachdir(zip_file, dir_path, sc3convert_pack_file_from_dir);
+
+	zipClose(zip_file, NULL);
+
 	return SC3CONVERT_SUCCESS;
+}
+
+void sc3convert_pack_file_from_dir(void *obj, const char *path, const char *file_name) {
+	zip_fileinfo zi;
+	zi.tmz_date.tm_sec = 0;
+	zi.tmz_date.tm_min = 0;
+	zi.tmz_date.tm_hour = 0;
+	zi.tmz_date.tm_mday = 0;
+	zi.tmz_date.tm_mon = 0;
+	zi.tmz_date.tm_year = 0;
+	zi.dosDate = 0;
+	zi.internal_fa = 0;
+	zi.external_fa = 0;
+
+	zipOpenNewFileInZip3(obj, file_name, &zi, NULL, 0, NULL, 0, NULL, 0, 0, 0, 0, 0, 0, NULL, 0);
+
+	char name[MAX_FILENAME];
+	strcpy(name, path);
+	strcat(name, file_name);
+	FILE *file = fopen(name, "rb");
+
+	char buffer[100 * 1024];
+	int size = 0;
+	while (!feof(file)) {
+		size = fread(buffer, 1, sizeof(buffer), file);
+		zipWriteInFileInZip(obj, buffer, size);
+		if (ferror(file)) {
+			break;
+		}
+	}
+	fclose(file);
+
+	zipCloseFileInZip(obj);
 }
 
 json_object *sc3convert_load_opcode() {
@@ -147,13 +193,22 @@ json_object *sc3convert_load_opcode() {
 }
 
 int sc3convert_convert_project(const char *name) {
+	// Init md5 list
+	single_list_string *md5_image = single_list_string_new();
+	single_list_string *md5_sound = single_list_string_new();
+
 	// Unpack file
 	int code = sc3convert_unpack_file(name);
 	if (code != SC3CONVERT_SUCCESS) {
 		return code;
 	}
 
-	// Make output file folder
+	// Make input file path
+	char input_path[MAX_FILENAME];
+	strcpy(input_path, name);
+	strcat(input_path, "t/");
+
+	// Make output file path
 	char output_path[MAX_FILENAME];
 	strcpy(output_path, name);
 	strcat(output_path, "t/e/");
@@ -179,13 +234,13 @@ int sc3convert_convert_project(const char *name) {
 	fclose(json_file);
 	
 	// Get opcode.json
-	json_object *opcode = sc3convert_convert_load_opcode();
+	json_object *opcode = sc3convert_load_opcode();
 
 	// Decode json object
 	json_object *file_object = json_tokener_parse(file_data);
 
 	// New json object for scratch2
-	json_object *result_object = sc3convert_convert_new_stage();
+	json_object *result_object = sc3convert_new_stage();
 	json_object *child_object = json_object_object_get(result_object, "children");
 
 	// Convert each target
@@ -203,7 +258,7 @@ int sc3convert_convert_project(const char *name) {
 		}
 		else {
 			// Set name
-			item_object = sc3convert_convert_new_sprite(json_object_get_string(json_object_object_get(current_object, "name")));
+			item_object = sc3convert_new_sprite(json_object_get_string(json_object_object_get(current_object, "name")));
 			json_object_array_add(child_object, item_object);
 		}
 
@@ -213,7 +268,7 @@ int sc3convert_convert_project(const char *name) {
 		struct json_object_iterator iter_beg = json_object_iter_begin(temp_object);
 		struct json_object_iterator iter_end = json_object_iter_end(temp_object);
 		while (!json_object_iter_equal(&iter_beg, &iter_end)) {
-			json_object_array_add(goal_object, sc3convert_convert_new_variable(json_object_iter_peek_value(&iter_beg)));
+			json_object_array_add(goal_object, sc3convert_new_variable(json_object_iter_peek_value(&iter_beg)));
 			json_object_iter_next(&iter_beg);
 		}
 
@@ -223,7 +278,7 @@ int sc3convert_convert_project(const char *name) {
 		iter_beg = json_object_iter_begin(temp_object);
 		iter_end = json_object_iter_end(temp_object);
 		while (!json_object_iter_equal(&iter_beg, &iter_end)) {
-			json_object_array_add(goal_object, sc3convert_convert_new_list(json_object_iter_peek_value(&iter_beg)));
+			json_object_array_add(goal_object, sc3convert_new_list(json_object_iter_peek_value(&iter_beg)));
 			json_object_iter_next(&iter_beg);
 		}
 
@@ -236,26 +291,174 @@ int sc3convert_convert_project(const char *name) {
 			json_object *block_item = json_object_iter_peek_value(&iter_beg);
 			if (json_object_get_boolean(json_object_object_get(block_item, "topLevel"))) {
 				json_object *block_part = json_object_new_array();
-				json_object_array_add(block_part, json_object_get_int(json_object_object_get(block_item, "x")));
-				json_object_array_add(block_part, json_object_get_int(json_object_object_get(block_item, "y")));
-				json_object_array_add(block_part, sc3convert_convert_new_script(opcode, temp_object, block_item));
+				json_object_array_add(block_part, json_object_object_get(block_item, "x"));
+				json_object_array_add(block_part, json_object_object_get(block_item, "y"));
+				json_object_array_add(block_part, sc3convert_new_script(opcode, temp_object, block_item));
 				json_object_array_add(goal_object, block_part);
 			}
 			json_object_iter_next(&iter_beg);
 		}
 
 		// Costumes
+		temp_object = json_object_object_get(current_object, "costumes");
+		goal_object = json_object_object_get(item_object, "costumes");
+		size_t length = json_object_array_length(temp_object);
+		for (size_t i = 0; i < length; ++i) {
+			json_object *old_costume = json_object_array_get_idx(temp_object, i);
+			json_object *new_costume = json_object_new_object();
+			json_object_object_add(new_costume, "costumeName", json_object_object_get(old_costume, "name"));
+			json_object_object_add(new_costume, "baseLayerMD5", json_object_object_get(old_costume, "md5ext"));
+			json_object_object_add(new_costume, "rotationCenterX", json_object_object_get(old_costume, "rotationCenterX"));
+			json_object_object_add(new_costume, "rotationCenterY", json_object_object_get(old_costume, "rotationCenterY"));
+			json_object *temp = json_object_object_get(old_costume, "bitmapResolution");
+			// No bitmap resolution
+			if (temp == NULL) {
+				json_object_object_add(new_costume, "bitmapResolution", json_object_new_int(1));
+			}
+			// Contains bitmap resolution
+			else {
+				json_object_object_add(new_costume, "bitmapResolution", temp);
+			}
+			int asset_id = single_list_string_contains(md5_image, json_object_get_string(json_object_object_get(old_costume, "assetId")));
+			// Not include md5
+			if (asset_id == -1) {
+				single_list_string_append(md5_image, json_object_get_string(json_object_object_get(old_costume, "assetId")));
+				json_object_object_add(new_costume, "baseLayerID", json_object_new_int((*md5_image).length));
+				// Change file, set path
+				char filepath[_MAX_PATH], srcpath[_MAX_PATH], buffer[11];
+				strcpy(filepath, output_path);
+				_itoa((*md5_image).length, buffer, 10);
+				strcat(filepath, buffer);
+				strcat(filepath, ".");
+				strcat(filepath, json_object_get_string(json_object_object_get(old_costume, "dataFormat")));
 
+				strcpy(srcpath, input_path);
+				strcat(srcpath, json_object_get_string(json_object_object_get(old_costume, "md5ext")));
+				// Copy file
+				copyfile(srcpath, filepath);
+			}
+			// Included md5
+			else {
+				json_object_object_add(new_costume, "baseLayerID", json_object_new_int(asset_id));
+			}
+			json_object_array_add(goal_object, new_costume);
+		}
 
 		// Current costume
-
+		json_object_object_add(item_object, "currentCostumeIndex", json_object_object_get(current_object, "currentCostume"));
 
 		// Sounds
+		temp_object = json_object_object_get(current_object, "sounds");
+		goal_object = json_object_object_get(item_object, "sounds");
+		length = json_object_array_length(temp_object);
+		for (size_t i = 0; i < length; ++i) {
+			json_object *old_costume = json_object_array_get_idx(temp_object, i);
+			json_object *new_costume = json_object_new_object();
+			json_object_object_add(new_costume, "soundName", json_object_object_get(old_costume, "name"));
+			json_object_object_add(new_costume, "baseLayerMD5", json_object_object_get(old_costume, "md5ext"));
+			json_object_object_add(new_costume, "sampleCount", json_object_object_get(old_costume, "sampleCount"));
+			json_object_object_add(new_costume, "rate", json_object_object_get(old_costume, "rate"));
+			json_object_object_add(new_costume, "format", json_object_object_get(old_costume, "format"));
+			int asset_id = single_list_string_contains(md5_sound, json_object_get_string(json_object_object_get(old_costume, "assetId")));
+			// Not include md5
+			if (asset_id == -1) {
+				json_object_object_add(new_costume, "soundID", json_object_new_int(md5_image->length));
+				single_list_string_append(md5_image, json_object_get_string(json_object_object_get(old_costume, "assetId")));
+				// Change file, set path
+				char filepath[_MAX_PATH], srcpath[_MAX_PATH], buffer[11];
+				strcpy(filepath, output_path);
+				_itoa(md5_image->length - 1, buffer, 10);
+				strcat(filepath, buffer);
+				strcat(filepath, ".");
+				strcat(filepath, json_object_get_string(json_object_object_get(old_costume, "dataFormat")));
 
-
+				strcpy(srcpath, input_path);
+				strcat(srcpath, json_object_get_string(json_object_object_get(old_costume, "md5ext")));
+				// Copy file
+				copyfile(srcpath, filepath);
+			}
+			// Included md5
+			else {
+				json_object_object_add(new_costume, "soundID", json_object_new_int(asset_id));
+			}
+			json_object_array_add(goal_object, new_costume);
+		}
 	}
 
+	// Output json
+	char out_json[MAX_FILENAME];
+	strcpy(out_json, output_path);
+	strcat(out_json, "project.json");
+	json_object_to_file(out_json, result_object);
+
+	// Pack *.sb2
+	char out_file[MAX_FILENAME];
+	strcpy(out_file, name);
+	strcat(out_file, ".sb2");
+	code = sc3convert_pack_file(output_path, out_file);
+	if (code != SC3CONVERT_SUCCESS) {
+		return code;
+	}
+
+	// Delete temp file
+	removeall(input_path);
+
 	return SC3CONVERT_SUCCESS;
+}
+
+json_object *sc3convert_new_script(json_object *opcode, json_object *blocks, json_object *block_item) {
+	json_object *result = json_object_new_array();
+	while (true) {
+		json_object *block = json_object_new_array();
+		json_object *current_opcode = json_object_object_get(opcode, json_object_get_string(json_object_object_get(block_item, "opcode")));
+		// Get name in scratch2
+		json_object_array_add(block, json_object_array_get_idx(current_opcode, 0));
+		// Loop for each param of block (in the order of scratch2)
+		json_object *param = json_object_array_get_idx(current_opcode, 1);
+		json_object *inputs = json_object_object_get(block_item, "inputs");
+		json_object *fields = json_object_object_get(block_item, "fields");
+		size_t length = json_object_array_length(param);
+		for (size_t i = 0; i < length; ++i) {
+			const char *string = json_object_get_string(json_object_array_get_idx(param, i));
+			// Value in inputs
+			if (json_object_object_get(inputs, string) != NULL) {
+				json_object *temp = json_object_object_get(inputs, string);
+				int type = json_object_get_int(json_object_array_get_idx(temp, 0));
+				// [1] immediate value or value in fields
+				if (type == 1) {
+					json_type type = json_object_get_type(json_object_array_get_idx(temp, 1));
+					// [array] immediate value
+					if (type == json_type_array) {
+						json_object_array_add(block, json_object_array_get_idx(json_object_array_get_idx(temp, 1), 1));
+					}
+					// [string] value in fields
+					else if (type == json_type_string) {
+						temp = json_object_object_get(json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(temp, 1))), "fields");
+						json_object_array_add(block, json_object_array_get_idx(json_object_object_get(temp, string), 0));
+					}
+				}
+				// [3] block-insert value
+				else if (type == 3) {
+					json_object_array_add(block, json_object_array_get_idx(sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(temp, 1)))), 0));
+				}
+			}
+			// Value in fields
+			else if (json_object_object_get(fields, string) != NULL) {
+				json_object_array_add(block, json_object_array_get_idx(json_object_object_get(fields, string), 0));
+			}
+		}
+		// Push block
+		json_object_array_add(result, block);
+		// Next
+		json_object *tmp = json_object_object_get(block_item, "next");
+		if (json_object_get_type(tmp) == json_type_null) {
+			break;
+		}
+		else {
+			block_item = json_object_object_get(blocks, json_object_get_string(tmp));
+		}
+	}
+	return result;
 }
 
 json_object *sc3convert_new_object(const char *name) {
@@ -266,7 +469,7 @@ json_object *sc3convert_new_object(const char *name) {
 	json_object_object_add(result_object, "scripts", json_object_new_array());
 	json_object_object_add(result_object, "scriptComments", json_object_new_array());
 	json_object_object_add(result_object, "costumes", json_object_new_array());
-	json_object_object_add(result_object, "currentCostumeIndex", json_object_new_int(0));
+//	json_object_object_add(result_object, "currentCostumeIndex", json_object_new_int(0));
 	json_object_object_add(result_object, "sounds", json_object_new_array());
 	return result_object;
 }
@@ -279,7 +482,7 @@ json_object *sc3convert_new_stage() {
 	json_object_object_add(info, "metaData", json_object_new_string("ad82caf04f3a3976353656cf87ace2ae"));
 	json_object_object_add(info, "userAgent", json_object_new_string("Scratch 2.0 Offline Editor"));
 	json_object_object_add(info, "comment", json_object_new_string("Scratch3Convert"));
-	json_object *result_object = sc3convert_convert_new_object("Stage");
+	json_object *result_object = sc3convert_new_object("Stage");
 	json_object_object_add(result_object, "children", json_object_new_array());
 	json_object_object_add(result_object, "tempoBPM", json_object_new_double(.0));
 	json_object_object_add(result_object, "videoAlpha", json_object_new_double(.0));
@@ -290,7 +493,7 @@ json_object *sc3convert_new_stage() {
 }
 
 json_object *sc3convert_new_sprite(const char *name) {
-	json_object *result_object = sc3convert_convert_new_object(name);
+	json_object *result_object = sc3convert_new_object(name);
 	json_object_object_add(result_object, "scratchX", json_object_new_int(0));
 	json_object_object_add(result_object, "scratchY", json_object_new_int(0));
 	json_object_object_add(result_object, "scale", json_object_new_double(.0));
@@ -322,71 +525,6 @@ json_object *sc3convert_new_list(json_object *object) {
 	json_object_object_add(result_object, "height", json_object_new_int(0));
 	json_object_object_add(result_object, "visible", json_object_new_boolean(false));
 	return result_object;
-}
-
-json_object *sc3convert_new_script(json_object *opcode, json_object *blocks, json_object *block_item) {
-	json_object *result = json_object_new_array();
-	while (true) {
-		json_object *block = json_object_new_array();
-		json_object *current_opcode = json_object_object_get(opcode, json_object_get_string(json_object_object_get(block_item, "opcode")));
-		// Get name in scratch2
-		json_object_array_add(block, json_object_array_get_idx(current_opcode, 0));
-		// Loop for each param of block (in the order of scratch2)
-		json_object *param = json_object_array_get_idx(current_opcode, 1);
-		json_object *inputs = json_object_object_get(block_item, "inputs");
-		json_object *fields = json_object_object_get(block_item, "fields");
-		size_t length = json_object_array_length(param);
-		for (size_t i = 0; i < length; ++i) {
-			const char *string = json_object_get_string(json_object_array_get_idx(param, i));
-			// Value in inputs
-			if (sc3convert_array_contains_string(inputs, string)) {
-				json_object *temp = json_object_object_get(inputs, string);
-				int type = json_object_get_int(json_object_array_get_idx(temp, 0));
-				// [1] immediate value or value in fields
-				if (type == 1) {
-					json_type type = json_object_get_type(json_object_array_get_idx(temp, 1));
-					// [array] immediate value
-					if (type == json_type_array) {
-						json_object_array_add(block, json_object_array_get_idx(json_object_array_get_idx(temp, 1), 1));
-					}
-					// [string] value in fields
-					else if (type == json_type_string) {
-						temp = json_object_object_get(json_object_object_get(blocks, json_object_array_get_idx(temp, 1)), "fields");
-						json_object_array_add(block, json_object_array_get_idx(json_object_object_get(temp, string), 0));
-					}
-				}
-				// [3] block-insert value
-				else if (type == 3) {
-					json_object_array_add(block, sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_array_get_idx(temp, 1))));
-				}
-			}
-			// Value in fields
-			else if (sc3convert_array_contains_string(fields, string)) {
-				json_object_array_add(block, json_object_array_get_idx(json_object_object_get(fields, string), 0));
-			}
-		}
-		// Push block
-		json_object_array_add(result, block);
-		// Next
-		json_object *tmp = json_object_object_get(block_item, "next");
-		if (json_object_get_type(tmp) == json_type_null) {
-			break;
-		}
-		else {
-			block_item = json_object_object_get(block, tmp);
-		}
-	}
-	return result;
-}
-
-bool sc3convert_array_contains_string(json_object *array, const char *string) {
-	size_t length = json_object_array_length(array);
-	for (size_t i = 0; i < length; ++i) {
-		if (strcmp(json_object_get_string(json_object_array_get_idx(array, i)), string) == 0) {
-			return true;
-		}
-	}
-	return false;
 }
 
 //test only

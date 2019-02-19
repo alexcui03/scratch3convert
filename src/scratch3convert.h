@@ -13,13 +13,13 @@
 	#ifdef _MSC_VER
 		#define SC3CONVERT_LIBAPI CAPI __declspec(dllexport)
 	#else
-		#define SC3CONVERT_LIBAPI CAPI
+		#define SC3CONVERT_LIBAPI CAPI extern
 	#endif
 #else
 	#ifdef _MSC_VER
 		#define SC3CONVERT_LIBAPI CAPI __declspec(dllimport)
 	#else
-		#define SC3CONVERT_LIBAPI CAPI
+		#define SC3CONVERT_LIBAPI CAPI extern
 	#endif
 #endif
 
@@ -33,7 +33,9 @@
 #define SC3CONVERT_EXCEPTION_UNZIPREADFILE		-0x06
 #define SC3CONVERT_EXCEPTION_UNZIPREADNEXTFILE	-0x07
 
-#define SC3CONVERT_EXCEPTION_CONVOPENFILE		-0x11
+#define SC3CONVERT_EXCEPTION_ZIPCREATEZIP		-0x01
+
+#define SC3CONVERT_EXCEPTION_CONVOPENFILE		-0x21
 
 SC3CONVERT_LIBAPI int sc3convert_convert(const char *name);
 

@@ -18,20 +18,32 @@
     <ClInclude Include="src\scratch3convert.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="src\single_list.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\cppfunc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\scratch3convert.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="src\single_list.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\cppfunc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <Library Include="lib\jsonc.lib">
-      <Filter>Resource Files</Filter>
-    </Library>
     <Library Include="lib\zlib.lib">
       <Filter>Resource Files</Filter>
     </Library>
     <Library Include="lib\minizip.lib">
+      <Filter>Resource Files</Filter>
+    </Library>
+    <Library Include="lib\json-c.lib">
       <Filter>Resource Files</Filter>
     </Library>
   </ItemGroup>

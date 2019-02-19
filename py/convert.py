@@ -152,9 +152,9 @@ def convert(path):
 			# bpm
 			item["tempoBPM"] = target["tempo"]
 			# pen layer
-			item["penLayerMD5"] = "5c81a336fab8be57adc039a8a2b33ca9.png"
-			item["penLayerID"] = 0
-			shutil.copyfile("./penlayer.png", path + "t/e/0.png")
+			#item["penLayerMD5"] = "5c81a336fab8be57adc039a8a2b33ca9.png"
+			#item["penLayerID"] = 0
+			#shutil.copyfile("./penlayer.png", path + "t/e/0.png")
 		# sprite only
 		else:
 			# position
