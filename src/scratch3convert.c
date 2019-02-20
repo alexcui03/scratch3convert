@@ -1,8 +1,14 @@
 #ifdef _MSC_VER
-	#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#ifdef _WIN64
+#pragma comment(lib, "./lib/win64/json-c.lib")
+#pragma comment(lib, "./lib/win64/minizip.lib")
+#pragma comment(lib, "./lib/win64/zlib.lib")
+#else
 #pragma comment(lib, "./lib/win32/json-c.lib")
 #pragma comment(lib, "./lib/win32/minizip.lib")
 #pragma comment(lib, "./lib/win32/zlib.lib")
+#endif
 #endif
 
 #include "scratch3convert.h"

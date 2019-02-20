@@ -37,6 +37,6 @@
 
 #define SC3CONVERT_EXCEPTION_CONVOPENFILE		-0x21
 
-SC3CONVERT_LIBAPI int sc3convert_convert(const char *name);
+int SC3CONVERT_LIBAPI __cdecl sc3convert_convert(const char *name);
 
 #endif
