@@ -1,5 +1,8 @@
 #ifdef _MSC_VER
 	#define _CRT_SECURE_NO_WARNINGS
+#pragma comment(lib, "./lib/win32/json-c.lib")
+#pragma comment(lib, "./lib/win32/minizip.lib")
+#pragma comment(lib, "./lib/win32/zlib.lib")
 #endif
 
 #include "scratch3convert.h"
@@ -410,45 +413,64 @@ json_object *sc3convert_new_script(json_object *opcode, json_object *blocks, jso
 	json_object *result = json_object_new_array();
 	while (true) {
 		json_object *block = json_object_new_array();
-		json_object *current_opcode = json_object_object_get(opcode, json_object_get_string(json_object_object_get(block_item, "opcode")));
-		// Get name in scratch2
-		json_object_array_add(block, json_object_array_get_idx(current_opcode, 0));
-		// Loop for each param of block (in the order of scratch2)
-		json_object *param = json_object_array_get_idx(current_opcode, 1);
-		json_object *inputs = json_object_object_get(block_item, "inputs");
-		json_object *fields = json_object_object_get(block_item, "fields");
-		size_t length = json_object_array_length(param);
-		for (size_t i = 0; i < length; ++i) {
-			const char *string = json_object_get_string(json_object_array_get_idx(param, i));
-			// Value in inputs
-			if (json_object_object_get(inputs, string) != NULL) {
-				json_object *temp = json_object_object_get(inputs, string);
-				int type = json_object_get_int(json_object_array_get_idx(temp, 0));
-				// [1] immediate value or value in fields
-				if (type == 1) {
-					json_type type = json_object_get_type(json_object_array_get_idx(temp, 1));
-					// [array] immediate value
-					if (type == json_type_array) {
-						json_object_array_add(block, json_object_array_get_idx(json_object_array_get_idx(temp, 1), 1));
+		const char *t = json_object_get_string(json_object_object_get(block_item, "opcode"));
+		json_object *current_opcode = json_object_object_get(opcode, t);
+		if (current_opcode != NULL) {
+			// Get name in scratch2
+			json_object_array_add(block, json_object_array_get_idx(current_opcode, 0));
+			// Loop for each param of block (in the order of scratch2)
+			json_object *param = json_object_array_get_idx(current_opcode, 1);
+			json_object *inputs = json_object_object_get(block_item, "inputs");
+			json_object *fields = json_object_object_get(block_item, "fields");
+			size_t length = json_object_array_length(param);
+			for (size_t i = 0; i < length; ++i) {
+				const char *string = json_object_get_string(json_object_array_get_idx(param, i));
+				// Value in inputs
+				if (json_object_object_get(inputs, string) != NULL) {
+					json_object *temp = json_object_object_get(inputs, string);
+					int type = json_object_get_int(json_object_array_get_idx(temp, 0));
+					// [1] immediate value or value in fields
+					if (type == 1) {
+						json_type type = json_object_get_type(json_object_array_get_idx(temp, 1));
+						// [array] immediate value
+						if (type == json_type_array) {
+							json_object_array_add(block, json_object_array_get_idx(json_object_array_get_idx(temp, 1), 1));
+						}
+						// [string] value in fields
+						else if (type == json_type_string) {
+							temp = json_object_object_get(json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(temp, 1))), "fields");
+							json_object_array_add(block, json_object_array_get_idx(json_object_object_get(temp, string), 0));
+						}
 					}
-					// [string] value in fields
-					else if (type == json_type_string) {
-						temp = json_object_object_get(json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(temp, 1))), "fields");
-						json_object_array_add(block, json_object_array_get_idx(json_object_object_get(temp, string), 0));
+					// [2] C/E block
+					else if (type == 2) {
+						json_object_array_add(block, sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(temp, 1)))));
+					}
+					// [3] block-insert value
+					else if (type == 3) {
+						json_object *tmp = json_object_array_get_idx(temp, 1);
+						json_type type = json_object_get_type(tmp);
+						// [array] variable
+						if (type == json_type_array) {
+							json_object *tmp_block = json_object_new_array();
+							json_object_array_add(tmp_block, json_object_new_string("readVariable"));
+							json_object_array_add(tmp_block, json_object_array_get_idx(tmp, 1));
+							json_object_array_add(block, tmp_block);
+						}
+						// [string] other insert
+						else {
+							json_object_array_add(block, json_object_array_get_idx(sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(tmp))), 0));
+						}
 					}
 				}
-				// [3] block-insert value
-				else if (type == 3) {
-					json_object_array_add(block, json_object_array_get_idx(sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(temp, 1)))), 0));
+				// Value in fields
+				else if (json_object_object_get(fields, string) != NULL) {
+					json_object_array_add(block, json_object_array_get_idx(json_object_object_get(fields, string), 0));
 				}
 			}
-			// Value in fields
-			else if (json_object_object_get(fields, string) != NULL) {
-				json_object_array_add(block, json_object_array_get_idx(json_object_object_get(fields, string), 0));
-			}
+			// Push block
+			json_object_array_add(result, block);
 		}
-		// Push block
-		json_object_array_add(result, block);
 		// Next
 		json_object *tmp = json_object_object_get(block_item, "next");
 		if (json_object_get_type(tmp) == json_type_null) {
@@ -529,8 +551,8 @@ json_object *sc3convert_new_list(json_object *object) {
 
 //test only
 int main() {
-	char name[BUFFER_SIZE];
-	scanf("%s", &name);
-	return sc3convert_convert_project(name);
+	//char name[BUFFER_SIZE];
+	//scanf("%s", &name);
+	return sc3convert_convert_project("D:/Workspace/Program/Scratch/Alka/alka.sb3");
 }
 

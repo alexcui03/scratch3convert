@@ -36,15 +36,4 @@
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
-  <ItemGroup>
-    <Library Include="lib\zlib.lib">
-      <Filter>Resource Files</Filter>
-    </Library>
-    <Library Include="lib\minizip.lib">
-      <Filter>Resource Files</Filter>
-    </Library>
-    <Library Include="lib\json-c.lib">
-      <Filter>Resource Files</Filter>
-    </Library>
-  </ItemGroup>
 </Project>
