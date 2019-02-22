@@ -43,6 +43,7 @@ json_object *sc3convert_new_stage();
 json_object *sc3convert_new_sprite(const char *name);
 json_object *sc3convert_new_variable(json_object *object);
 json_object *sc3convert_new_list(json_object *object);
+json_object *sc3convert_single_script(json_object *opcode, json_object *blocks, json_object *block_item);
 json_object *sc3convert_new_script(json_object *opcode, json_object *blocks, json_object *block_item);
 
 int sc3convert_convert(const char *name) {
@@ -415,69 +416,99 @@ int sc3convert_convert_project(const char *name) {
 	return SC3CONVERT_SUCCESS;
 }
 
+json_object *sc3convert_single_script(json_object *opcode, json_object *blocks, json_object *block_item) {
+	json_object *block = json_object_new_array();
+	// Get opcode
+	json_object *current_opcode = json_object_object_get(opcode, json_object_get_string(json_object_object_get(block_item, "opcode")));
+	if (current_opcode == NULL) {
+		// TODO: opcode not found
+	}
+	else {
+		// Get and add name in sc2
+		json_object_array_add(block, json_object_array_get_idx(current_opcode, 0));
+		// Loop for each param of block (in sc2 order)
+		json_object *params = json_object_array_get_idx(current_opcode, 1);
+		json_object *inputs = json_object_object_get(block_item, "inputs");
+		json_object *fields = json_object_object_get(block_item, "fields");
+		size_t length = json_object_array_length(params);
+		for (size_t i = 0; i < length; ++i) {
+			const char *param_name = json_object_get_string(json_object_array_get_idx(params, i));
+			json_object *param = NULL;
+			// Value in inputs
+			if ((param = json_object_object_get(inputs, param_name)) != NULL) {
+				int param_type = json_object_get_int(json_object_array_get_idx(param, 0));
+				switch (param_type) {
+				// [1] immediate value and value in fields
+				case 1: {
+					json_object *value = json_object_array_get_idx(param, 1);
+					json_type value_type = json_object_get_type(value);
+					switch (value_type) {
+					// [array] immediate valule
+					case json_type_array: {
+						json_object_array_add(block, json_object_array_get_idx(value, 1));
+						break;
+					}
+					// [string] value in fields
+					case json_type_string: {
+						json_object_array_add(block, json_object_array_get_idx(json_object_object_get(json_object_object_get(json_object_object_get(blocks, json_object_get_string(value)), "fields"), param_name), 0));
+						break;
+					}
+					// bad value type
+					default: {
+						// TODO: unknown param type
+					}
+					}
+					break;
+				}
+				// [2] C/E block param
+				case 2: {
+					json_object_array_add(block, sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(param, 1)))));
+					break;
+				}
+				// [3] block-insert value
+				case 3: {
+					json_object *value = json_object_array_get_idx(param, 1);
+					json_type value_type = json_object_get_type(value);
+					switch (value_type) {
+					// [array] variable
+					case json_type_array: {
+						json_object *tmp_block = json_object_new_array();
+						json_object_array_add(tmp_block, json_object_new_string("readVariable"));
+						json_object_array_add(tmp_block, json_object_array_get_idx(value, 1));
+						json_object_array_add(block, tmp_block);
+					}
+					// [string] other insert
+					case json_type_string: {
+						json_object_array_add(block, sc3convert_single_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(value))));
+					}
+					// bad value type
+					default: {
+						// TODO: unknown param type
+					}
+					}
+				}
+				// unknown param type
+				default: {
+					// TODO: unknown param type
+				}
+				}
+			}
+			// Value in fields
+			else if ((param = json_object_object_get(fields, param_name)) != NULL) {
+				json_object_array_add(block, json_object_array_get_idx(json_object_object_get(fields, param_name), 0));
+			}
+			else {
+				// TODO: error opcode param
+			}
+		}
+	}
+	return block;
+}
+
 json_object *sc3convert_new_script(json_object *opcode, json_object *blocks, json_object *block_item) {
 	json_object *result = json_object_new_array();
 	while (true) {
-		json_object *block = json_object_new_array();
-		const char *t = json_object_get_string(json_object_object_get(block_item, "opcode"));
-		json_object *current_opcode = json_object_object_get(opcode, t);
-		if (current_opcode != NULL) {
-			// Get name in scratch2
-			json_object_array_add(block, json_object_array_get_idx(current_opcode, 0));
-			// Loop for each param of block (in the order of scratch2)
-			json_object *param = json_object_array_get_idx(current_opcode, 1);
-			json_object *inputs = json_object_object_get(block_item, "inputs");
-			json_object *fields = json_object_object_get(block_item, "fields");
-			size_t length = json_object_array_length(param);
-			for (size_t i = 0; i < length; ++i) {
-				const char *string = json_object_get_string(json_object_array_get_idx(param, i));
-				// Value in inputs
-				if (json_object_object_get(inputs, string) != NULL) {
-					json_object *temp = json_object_object_get(inputs, string);
-					int type = json_object_get_int(json_object_array_get_idx(temp, 0));
-					// [1] immediate value or value in fields
-					if (type == 1) {
-						json_type type = json_object_get_type(json_object_array_get_idx(temp, 1));
-						// [array] immediate value
-						if (type == json_type_array) {
-							json_object_array_add(block, json_object_array_get_idx(json_object_array_get_idx(temp, 1), 1));
-						}
-						// [string] value in fields
-						else if (type == json_type_string) {
-							temp = json_object_object_get(json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(temp, 1))), "fields");
-							json_object_array_add(block, json_object_array_get_idx(json_object_object_get(temp, string), 0));
-						}
-					}
-					// [2] C/E block
-					else if (type == 2) {
-						json_object_array_add(block, sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(temp, 1)))));
-					}
-					// [3] block-insert value
-					else if (type == 3) {
-						json_object *tmp = json_object_array_get_idx(temp, 1);
-						json_type type = json_object_get_type(tmp);
-						// [array] variable
-						if (type == json_type_array) {
-							json_object *tmp_block = json_object_new_array();
-							json_object_array_add(tmp_block, json_object_new_string("readVariable"));
-							json_object_array_add(tmp_block, json_object_array_get_idx(tmp, 1));
-							json_object_array_add(block, tmp_block);
-						}
-						// [string] other insert
-						else {
-							json_object_array_add(block, json_object_array_get_idx(sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(tmp))), 0));
-						}
-					}
-				}
-				// Value in fields
-				else if (json_object_object_get(fields, string) != NULL) {
-					json_object_array_add(block, json_object_array_get_idx(json_object_object_get(fields, string), 0));
-				}
-			}
-			// Push block
-			json_object_array_add(result, block);
-		}
-		// Next
+		json_object_array_add(result, sc3convert_single_script(opcode, blocks, block_item));
 		json_object *tmp = json_object_object_get(block_item, "next");
 		if (json_object_get_type(tmp) == json_type_null) {
 			break;
@@ -559,6 +590,8 @@ json_object *sc3convert_new_list(json_object *object) {
 int main() {
 	//char name[BUFFER_SIZE];
 	//scanf("%s", &name);
-	return sc3convert_convert_project("D:/Workspace/Program/Scratch/Alka/alka.sb3");
+	sc3convert_convert_project("D:/Workspace/Github/scratch3convert-develop/test/t0.sb3");
+	system("pause");
+	return 0;
 }
 
