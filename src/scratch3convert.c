@@ -45,6 +45,7 @@ json_object *sc3convert_new_variable(json_object *object);
 json_object *sc3convert_new_list(json_object *object);
 json_object *sc3convert_single_script(json_object *opcode, json_object *blocks, json_object *block_item);
 json_object *sc3convert_new_script(json_object *opcode, json_object *blocks, json_object *block_item);
+bool sc3convert_json_object_array_contain_string(json_object *array, const char *str);
 
 int sc3convert_convert(const char *name) {
 	return sc3convert_convert_project(name);
@@ -426,6 +427,8 @@ json_object *sc3convert_single_script(json_object *opcode, json_object *blocks, 
 	else {
 		// Get and add name in sc2
 		json_object_array_add(block, json_object_array_get_idx(current_opcode, 0));
+		// Opcode param
+		json_object *opcode_argu = json_object_array_get_idx(current_opcode, 2);
 		// Loop for each param of block (in sc2 order)
 		json_object *params = json_object_array_get_idx(current_opcode, 1);
 		json_object *inputs = json_object_object_get(block_item, "inputs");
@@ -462,7 +465,15 @@ json_object *sc3convert_single_script(json_object *opcode, json_object *blocks, 
 				}
 				// [2] C/E block param
 				case 2: {
-					json_object_array_add(block, sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(param, 1)))));
+					json_object *substack = json_object_object_get(opcode_argu, "substack");
+					if (substack != NULL) {
+						if (sc3convert_json_object_array_contain_string(substack, param_name)) {
+							json_object_array_add(block, sc3convert_new_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(param, 1)))));
+						}
+						else {
+							json_object_array_add(block, sc3convert_single_script(opcode, blocks, json_object_object_get(blocks, json_object_get_string(json_object_array_get_idx(param, 1)))));
+						}
+					}
 					break;
 				}
 				// [3] block-insert value
@@ -489,16 +500,16 @@ json_object *sc3convert_single_script(json_object *opcode, json_object *blocks, 
 				}
 				// unknown param type
 				default: {
-					// TODO: unknown param type
+// TODO: unknown param type
 				}
 				}
 			}
 			// Value in fields
 			else if ((param = json_object_object_get(fields, param_name)) != NULL) {
-				json_object_array_add(block, json_object_array_get_idx(json_object_object_get(fields, param_name), 0));
+			json_object_array_add(block, json_object_array_get_idx(json_object_object_get(fields, param_name), 0));
 			}
 			else {
-				// TODO: error opcode param
+			// TODO: error opcode param
 			}
 		}
 	}
@@ -528,16 +539,16 @@ json_object *sc3convert_new_object(const char *name) {
 	json_object_object_add(result_object, "scripts", json_object_new_array());
 	json_object_object_add(result_object, "scriptComments", json_object_new_array());
 	json_object_object_add(result_object, "costumes", json_object_new_array());
-//	json_object_object_add(result_object, "currentCostumeIndex", json_object_new_int(0));
+	//	json_object_object_add(result_object, "currentCostumeIndex", json_object_new_int(0));
 	json_object_object_add(result_object, "sounds", json_object_new_array());
 	return result_object;
 }
 
 json_object *sc3convert_new_stage() {
 	json_object *info = json_object_new_object();
-//	json_object_object_add(info, "flashVersion", json_object_new_string("WIN 32,0,0,100"));
+	//	json_object_object_add(info, "flashVersion", json_object_new_string("WIN 32,0,0,100"));
 	json_object_object_add(info, "videoOn", json_object_new_boolean(false));
-//	json_object_object_add(info, "swfVersion", json_object_new_string(""));
+	//	json_object_object_add(info, "swfVersion", json_object_new_string(""));
 	json_object_object_add(info, "metaData", json_object_new_string("ad82caf04f3a3976353656cf87ace2ae"));
 	json_object_object_add(info, "userAgent", json_object_new_string("Scratch 2.0 Offline Editor"));
 	json_object_object_add(info, "comment", json_object_new_string("Scratch3Convert"));
@@ -545,8 +556,8 @@ json_object *sc3convert_new_stage() {
 	json_object_object_add(result_object, "children", json_object_new_array());
 	json_object_object_add(result_object, "tempoBPM", json_object_new_double(.0));
 	json_object_object_add(result_object, "videoAlpha", json_object_new_double(.0));
-//	json_object_object_add(result_object, "penLayerID", json_object_new_int(0));
-//	json_object_object_add(result_object, "penLayerMD5", json_object_new_string(""));
+	//	json_object_object_add(result_object, "penLayerID", json_object_new_int(0));
+	//	json_object_object_add(result_object, "penLayerMD5", json_object_new_string(""));
 	json_object_object_add(result_object, "info", info);
 	return result_object;
 }
@@ -584,6 +595,16 @@ json_object *sc3convert_new_list(json_object *object) {
 	json_object_object_add(result_object, "height", json_object_new_int(0));
 	json_object_object_add(result_object, "visible", json_object_new_boolean(false));
 	return result_object;
+}
+
+bool sc3convert_json_object_array_contain_string(json_object *array, const char *str) {
+	size_t length = json_object_array_length(array);
+	for (size_t i = 0; i < length; ++i) {
+		if (strcmp(json_object_get_string(json_object_array_get_idx(array, i)), str) == 0) {
+			return true;
+		}
+	}
+	return false;
 }
 
 //test only

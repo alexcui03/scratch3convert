@@ -2,5 +2,5 @@ scratch3convert bug list
 -------------------------------------------------------------
 ID	|STATUS	|ADD	|FIX	|SUPPORTER	|DESCRIPTION
 0	|Fixed	|1.0.0	|1.1.0	|AlexJason	|Blocks insertion error
-1	|Fixing	|1.2.0	|NaN	|Eureka0225	|Insertion error in C/E blocks
+1	|Fixed	|1.2.0	|1.3.0	|Eureka0225	|Insertion error in C/E blocks
 
